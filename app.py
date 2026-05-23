@@ -20,7 +20,7 @@ st.set_page_config(
     layout="centered"
 )
 
-st.title("💬 Chat con tus documentos")
+st.title("💬 Agente IA Búsqueda Empleo")
 st.write("@diegoparicio")
 
 # =========================

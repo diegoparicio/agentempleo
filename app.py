@@ -15,7 +15,7 @@ os.environ["GEMINI_API_KEY"] = st.secrets["GEMINI_API_KEY"]
 # =========================
 
 st.set_page_config(
-    page_title="RAG Chat",
+    page_title="Agente Empleo",
     page_icon="💬",
     layout="centered"
 )

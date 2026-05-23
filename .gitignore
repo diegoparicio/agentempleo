@@ -1,0 +1,11 @@
+previos/
+venv/
+__pycache__/
+.vscode/
+
+hash.txt
+.env
+.streamlit/
+
+loader.py
+build_index.py

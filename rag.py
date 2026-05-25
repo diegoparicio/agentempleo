@@ -197,7 +197,7 @@ class GeminiRAG:
         '''if not query or not query.strip():
             query = question'''
 
-        print("QUERY:", query)
+        print("\nQUERY:", query)
 
         results = self.search(query)
 
@@ -273,6 +273,7 @@ class GeminiRAG:
             if city.lower() in j["metadata"]["lugar"].lower()
         ]
     
+    '''    
     def filter_by_modality(self, jobs, modality):
 
         modality = normalize(modality)
@@ -302,6 +303,43 @@ class GeminiRAG:
                     filtered.append(j)
 
         return filtered
+    '''
+
+    def match_modality(self, job_modality, modality):
+
+        if modality == "remoto":
+            return "remoto" in job_modality
+
+        elif modality == "hibrido":
+            return "hibrido" in job_modality
+
+        elif modality == "presencial":
+            return (
+                "presencial" in job_modality
+                or "oficina" in job_modality
+            )
+
+        return False
+
+
+    def filter_by_modality(self, jobs, modalities):
+
+        if not modalities:
+            return jobs
+
+        modalities = [normalize(m) for m in modalities]
+
+        filtered = []
+
+        for j in jobs:
+
+            job_modality = normalize(j["metadata"]["modalidad"])
+
+            if any(self.match_modality(job_modality, m) for m in modalities):
+                filtered.append(j)
+
+        return filtered
+    
     
     def filter_by_experience(self, jobs, max_years):
 
@@ -365,6 +403,11 @@ class GeminiRAG:
     - NO incluyas ciudades, experiencia ni modalidad en "query".
     - Si el usuario no da keywords claras, usa una versión corta de la pregunta (quitando palabras genéricas como "ofertas", "trabajo", "empleo").
     - "query" nunca puede ser null ni vacío.
+
+    - "modalidad" debe ser una LISTA de valores o null
+    - valores posibles: ["remoto", "hibrido", "presencial"]
+    - si el usuario dice "remoto o híbrido" => ["remoto", "hibrido"]
+    - si no especifica => null
 
     Devuelve SOLO JSON válido.
 

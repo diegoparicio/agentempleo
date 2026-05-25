@@ -48,7 +48,7 @@ for msg in st.session_state.messages:
 # CHAT INPUT
 # =========================
 
-prompt = st.chat_input("Pregunta sobre tus documentos...")
+prompt = st.chat_input("Pregunta sobre las ofertas de empleo capturadas...")
 
 if prompt:
 

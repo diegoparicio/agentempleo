@@ -221,13 +221,56 @@ class GeminiRAG:
                 results,
                 filters["modality"]
             )
-        
-        '''
-        if filters["remote"]:
-            results = self.filter_remote(results)
-        '''
 
-        print("RESULTS AFTER FILTER:", len(results))
+        print("RESULTS AFTER FILTER 1:", len(results))
+        
+        if filters["zbe"] is not None:
+            results = self.filter_by_zbe(
+                results,
+                filters["zbe"]
+            )
+
+        if filters["max_distance"] is not None:
+            results = self.filter_by_distance(
+                results,
+                filters["max_distance"]
+            )
+
+        if filters["solicitud"] is not None:
+            results = self.filter_by_solicitud(
+                results,
+                filters["solicitud"]
+            )
+
+        print("RESULTS AFTER FILTER 2:", len(results))
+
+        # ===================================
+        # VISUALIZACIÓN DE RESULTADOS (DEBUG)
+        # ===================================
+
+        for r in results:
+
+            print(
+                f"""
+        Puesto: {r['metadata']['puesto']}
+        Empresa: {r['metadata']['empresa']}
+        Lugar: {r['metadata']['lugar']}
+        ZBE: {r['metadata'].get('zbe')}
+        Distancia: {r['metadata'].get('distancia')}
+        Modalidad: {r['metadata']['modalidad']}
+        Experiencia: {r['metadata']['experiencia']}
+        Clasificación: {r['metadata']['clasificacion']}
+        Solicitud: {r['metadata'].get('solicitud')}
+        URL: {r['metadata'].get('url')}
+        """
+            )
+
+        # Recurso para evitar un RESULTS AFTER FILTER = 0
+        ''' Si el filtrado devuelve 0 resultados, volvemos a la búsqueda sin filtros para garantizar
+        que el usuario reciba alguna respuesta relevante, aunque no cumpla todos los criterios. '''
+
+        if not results:
+            results = self.search(question)
      
         #context = json.dumps(
         #    results,
@@ -235,6 +278,7 @@ class GeminiRAG:
         #    indent=2
         #)
         
+        '''        
         context = "\n\n".join([
             f"""
         Puesto: {r["metadata"]["puesto"]}
@@ -248,11 +292,47 @@ class GeminiRAG:
         """
             for r in results
         ])
-    
-        prompt = f"""
-    Responde usando las ofertas encontradas.
+        '''
 
-    No digas "basado en el contexto".
+        context = "\n\n".join([
+            f"""
+        Puesto: {r["metadata"]["puesto"]}
+        Empresa: {r["metadata"]["empresa"]}
+        Lugar: {r["metadata"]["lugar"]}
+        ZBE: {r["metadata"].get("zbe")}
+        Distancia: {r["metadata"].get("distancia")} km
+        Modalidad: {r["metadata"]["modalidad"]}
+        Experiencia: {r["metadata"]["experiencia"]} años
+        Clasificación: {r["metadata"]["clasificacion"]}
+        Solicitud: {r["metadata"].get("solicitud")}
+        URL: {r["metadata"].get("url")}
+        Resumen: {r["metadata"]["resumen"]}
+        """
+            for r in results
+        ])
+
+        # print("\n=========== CONTEXT ===========\n")
+        # print(context)
+
+        prompt = f"""
+    Eres un asistente de búsqueda de empleo.
+
+    IMPORTANTE:
+    MUESTRA TODAS LAS OFERTAS EN EL CONTEXTO, incluso si no cumplen todos los filtros. El usuario quiere ver opciones variadas.
+    - No digas "basado en el contexto".
+    
+    Para cada oferta muestra:
+    - Encabezado (letra más grande): Puesto y Empresa
+    - URL
+    - Lugar
+    - Modalidad
+    - Experiencia
+    - ZBE
+    - Distancia
+    - Clasificación
+    - Estado de solicitud
+    - Resumen de la oferta
+
 
     Contexto:
     {context}
@@ -265,7 +345,10 @@ class GeminiRAG:
 
         return chain.invoke(prompt)
 
-    
+    # =========================
+    # FILTROS
+    # =========================
+
     def filter_by_city(self, jobs, city):
 
         return [
@@ -273,38 +356,6 @@ class GeminiRAG:
             if city.lower() in j["metadata"]["lugar"].lower()
         ]
     
-    '''    
-    def filter_by_modality(self, jobs, modality):
-
-        modality = normalize(modality)
-
-        filtered = []
-
-        for j in jobs:
-
-            job_modality = normalize(j["metadata"]["modalidad"])
-
-            if modality == "remoto":
-
-                if "remoto" in job_modality:
-                    filtered.append(j)
-
-            elif modality == "hibrido":
-
-                if "hibrido" in job_modality:
-                    filtered.append(j)
-
-            elif modality == "presencial":
-
-                if (
-                    "presencial" in job_modality
-                    or "oficina" in job_modality
-                ):
-                    filtered.append(j)
-
-        return filtered
-    '''
-
     def match_modality(self, job_modality, modality):
 
         if modality == "remoto":
@@ -371,28 +422,58 @@ class GeminiRAG:
                 filtered.append(j)
 
         return filtered
+    
+    def filter_by_zbe(self, jobs, zbe):
+
+        if zbe is None:
+            return jobs
+
+        return [
+            j for j in jobs
+            if j["metadata"].get("zbe") == zbe
+        ]
+    
+    def filter_by_distance(self, jobs, max_distance):
+
+        if max_distance is None:
+            return jobs
+
+        filtered = []
+
+        for j in jobs:
+
+            dist = j["metadata"].get("distancia")
+
+            if dist is None:
+                continue
+
+            try:
+                dist = float(dist)
+
+                if dist <= max_distance:
+                    filtered.append(j)
+
+            except:
+                continue
+
+        return filtered
+    
+    def filter_by_solicitud(self, jobs, solicitud):
+
+        if solicitud is None:
+            return jobs
+
+        return [
+            j for j in jobs
+            if j["metadata"].get("solicitud") == solicitud
+        ]
+    
+    # =========================
+    # EXTRACT FILTERS
+    # ========================= 
 
     def extract_filters(self, question: str):
-
-        '''prompt = f"""
-    Extrae filtros de búsqueda de empleo.
-
-    Devuelve SOLO JSON válido.
-
-    Formato:
-
-    {{
-    "query": "...",
-    "city": null,
-    "max_experience": null,
-    "modality": null
-    }}
-
-    Pregunta:
-    {question}
-    """
-    '''
-        
+   
         prompt = f"""
     Eres un sistema de extracción de filtros de empleo.
 
@@ -404,10 +485,43 @@ class GeminiRAG:
     - Si el usuario no da keywords claras, usa una versión corta de la pregunta (quitando palabras genéricas como "ofertas", "trabajo", "empleo").
     - "query" nunca puede ser null ni vacío.
 
+    - "zbe" indica si el usuario quiere ofertas dentro o fuera de zonas de bajas emisiones.
+
+        Valores:
+        true → dentro de ZBE
+        false → fuera de ZBE
+        null → indiferente
+
+        Reglas:
+        - Si el usuario dice "evitar ZBE", "fuera de zonas de bajas emisiones" → false
+        - Si dice "en ZBE", "centro ciudad con restricciones", "dentro de Madrid central" → true
+        - Si no lo menciona → null
+
+    - "distancia" indica la distancia máxima en kilómetros.
+
+        Reglas:
+        - Si el usuario dice "a menos de X km" → max_distance = X
+        - Si dice "cerca", "próximo", "alrededor" → max_distance = 60 (valor por defecto razonable)
+        - Si no menciona distancia → null
+
+    - "solicitud" indica si la oferta está activa o cerrada.
+
+        Valores:
+        true → ofertas activas ("se aceptan solicitudes")
+        false → ofertas cerradas ("ya no se aceptan solicitudes")
+
+        Reglas:
+        - Si el usuario dice "ofertas activas", "vacantes abiertas" → true
+        - Si dice "ofertas cerradas", "caducadas" → false
+        - Si no se menciona → null
+
     - "modalidad" debe ser una LISTA de valores o null
-    - valores posibles: ["remoto", "hibrido", "presencial"]
-    - si el usuario dice "remoto o híbrido" => ["remoto", "hibrido"]
-    - si no especifica => null
+        Valores posibles: ["remoto", "hibrido", "presencial"]
+        Reglas:
+        - si el usuario dice "remoto o híbrido" → ["remoto", "hibrido"]
+        - si dice "cualquiera / todas / no se especifica" → ["remoto", "hibrido", "presencial"]
+
+    - Si un filtro reduce demasiado los resultados, es mejor devolver valores más amplios que vaciar la búsqueda.
 
     Devuelve SOLO JSON válido.
 
@@ -416,6 +530,9 @@ class GeminiRAG:
     "query": "...",
     "city": null,
     "max_experience": null,
+    "zbe": null,
+    "max_distance": null,
+    "solicitud": null,
     "modality": null
     }}
 
@@ -451,5 +568,8 @@ class GeminiRAG:
                 "query": question,
                 "city": None,
                 "max_experience": None,
+                "zbe": None,
+                "max_distance": None,
+                "solicitud": None,
                 "modality": None
             }

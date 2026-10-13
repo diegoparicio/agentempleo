@@ -1,0 +1,17 @@
+name: Keep Streamlit Apps Awake
+
+on:
+  schedule:
+    # Se ejecuta cada 11 horas (cron es en UTC)
+    - cron: '0 */11 * * *'
+  workflow_dispatch: # Permite ejecutarlo manualmente para probar
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Streamlit Apps
+        run: |
+          echo "Pinging apps at $(date)"
+          curl -s https://agentempleo.streamlit.app/ > /dev/null
+          echo "Ping completado"
